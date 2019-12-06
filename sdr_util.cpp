@@ -43,6 +43,9 @@ class SdrDevice
 
     /* Baseband waveform freq (Hz) (Default: 100e3) */
     double BaseBandFreq;
+
+    /* Tx and Rx Bandwidth (Default: 40e6) */
+    double Bandwidth;
     
     public:
     
@@ -64,6 +67,8 @@ class SdrDevice
     double GetCarrierFreq(void);
     void SetBaseBandFreq(double vlaue);
     double GetBaseBandFreq(void);
+    void SetBandwidth(double vlaue);
+    double GetBandwidth(void);
 
     SoapySDR::Device *DeviceHandlePtr;
     static unsigned char InstanceCounter;
@@ -197,7 +202,7 @@ inline void SdrDevice::SetSampleRateVal(double vlaue)
 }
 
 /*******************************************************************************
- * @brief This function sets the sample rate for both Tx and Rx (DAC / ADC)
+ * @brief This function gets the sample rate for both Tx and Rx (DAC / ADC)
  *
  * @param void
  * @return SampleRateBB
@@ -205,6 +210,28 @@ inline void SdrDevice::SetSampleRateVal(double vlaue)
 inline double SdrDevice::GetSampleRateVal(void)
 {
     return (this->SampleRateBB);
+}
+
+/*******************************************************************************
+ * @brief This function sets the bandwidth freq for Tx and Rx
+ *
+ * @param value Value to set to
+ * @return void
+ ******************************************************************************/
+inline void SdrDevice::SetBandwidth(double vlaue)
+{
+    this->Bandwidth = vlaue;
+}
+
+/*******************************************************************************
+ * @brief This function sets the bandwidth freq for Tx and Rx
+ *
+ * @param void
+ * @return Bandwidth
+ ******************************************************************************/
+inline double SdrDevice::GetBandwidth(void)
+{
+    return (this->Bandwidth);
 }
 
 /*******************************************************************************
@@ -217,10 +244,17 @@ static void ConfigureSdrDevice(void)
 {
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {
+        /* Set sample rate */
         //TODO: verify if only one setting is enough to configure for all channels in TX and RX direction
         SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
         SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
         SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
         SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
+
+        /* Set bandwidth */
+        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
+        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
+        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
+        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
     }
 }
