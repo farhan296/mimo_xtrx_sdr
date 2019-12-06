@@ -36,6 +36,11 @@ if (NOT SoapySDR_FOUND)
 endif ()
 
 include_directories(${MY_DEVICE_INCLUDE_DIRS})
+#SOAPY_SDR_MODULE_UTIL(
+#    TARGET xtrx_frontend
+#    SOURCES test.cpp
+#    LIBRARIES ${MY_DEVICE_LIBRARIES}
+#)
 
-add_executable(xtrx_frontend main.cpp)
+add_executable(xtrx_frontend main.cpp sdr_util.cpp)
 target_link_libraries(xtrx_frontend PUBLIC ${MY_DEVICE_LIBRARIES})

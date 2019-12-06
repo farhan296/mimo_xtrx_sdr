@@ -8,6 +8,12 @@
  ******************************************************************************/
 #include <iostream>
 #include <string>
+#include "sdr_util.hpp"
+
+/*******************************************************************************
+ * Local MACRO
+ ******************************************************************************/
+#define USER_CONFIG 0U
 
 /*******************************************************************************
  * Local Data Structure
@@ -30,6 +36,8 @@ static void ParseParam(std::string param);
  ******************************************************************************/
 int main(int argc, char* argv[])
 {
+    SoapySDR::KwargsList DeviceList;
+#if USER_CONFIG
     std::string param;
     if (argc > 1u)
     {
@@ -46,6 +54,16 @@ int main(int argc, char* argv[])
           }
           
       }  
+    }
+#endif /* USER_CONFIG */
+
+    /* Enumerate connected SDR devices */
+    DeviceList = EnumerateSdr();
+
+    /* Check if DeviceList is empty */
+    if(!DeviceList.empty())
+    {
+        OpenAndConfigureSdrDevice(DeviceList);
     }
     
     return EXIT_SUCCESS;
