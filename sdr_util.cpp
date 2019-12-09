@@ -7,7 +7,11 @@
  * Include Files
  ******************************************************************************/
 #include <SoapySDR/Device.hpp>
+#include <SoapySDR/Formats.hpp>
 #include <iostream>
+
+//TODO: Remove this in final code
+#include "/home/AD.PATRIOT1TECH.COM/farhan.naeem/sdr_xtrx/mimo_dev/mimo_xtrx_sdr/test_signal/test.hpp"
 
 /*******************************************************************************
  * Local MACRO
@@ -15,7 +19,8 @@
 #define MAX_SDR_DEVICES 8U
 #define CHAN_0          0U
 #define CHAN_1          1U
-
+#define MAX_TX_CH       2U
+#define MAX_RX_CH       2U
 /*******************************************************************************
  * Local Data Structure
  ******************************************************************************/
@@ -46,6 +51,7 @@ class SdrDevice
 
     /* Tx and Rx Bandwidth (Default: 40e6) */
     double Bandwidth;
+
     
     public:
     
@@ -72,6 +78,9 @@ class SdrDevice
 
     SoapySDR::Device *DeviceHandlePtr;
     static unsigned char InstanceCounter;
+    
+    /* Pointer to stream */
+    SoapySDR::Stream *StreamHandle;
 };
 
 /* Initialize static mmber of class */
@@ -85,6 +94,9 @@ std::vector <SdrDevice *> SdrDeviceList (MAX_SDR_DEVICES);
 static void ShowUsage (std::string name);
 static void ParseParam(std::string param);
 static void ConfigureSdrDevice(void);
+static void SetupTxStream(void);
+static void RunTest(void);
+
 
 /*******************************************************************************
  * @brief This function enumerates connected SDR devices on PCIe bus
@@ -138,7 +150,13 @@ void OpenAndConfigureSdrDevice(SoapySDR::KwargsList &device_list)
     /* Configure SDR Devices */
     ConfigureSdrDevice();
 
+    /* Setup Tx Stream */
+    SetupTxStream();
+
     printf("Instance Created: %d\n\r",SdrDevice::InstanceCounter);
+
+    /* FIXME: Remove this in final code */
+    RunTest();
 }
 /*******************************************************************************
  * @brief This function is constructor for SdrDevice class
@@ -173,6 +191,9 @@ SdrDevice::SdrDevice()
 
     /* Baseband waveform freq (Hz) (Default: 100e3) */
     BaseBandFreq = 100e3;
+
+    /* Baseband waveform freq (Hz) (Default: 40e6) */
+    Bandwidth = 40e6;
 }
 
 /*******************************************************************************
@@ -235,6 +256,51 @@ inline double SdrDevice::GetBandwidth(void)
 }
 
 /*******************************************************************************
+ * @brief This function sets the Tx gain
+ *
+ * @param value Value to set to
+ * @return void
+ ******************************************************************************/
+inline void SdrDevice::SetTxGain(double vlaue)
+{
+    this->TxGain = vlaue;
+}
+
+/*******************************************************************************
+ * @brief This function returns the Tx gain
+ *
+ * @param void
+ * @return Tx gain
+ ******************************************************************************/
+inline double SdrDevice::GetTxGain(void)
+{
+    return (this->TxGain);
+}
+
+/*******************************************************************************
+ * @brief This function sets the carrier frequency
+ *
+ * @param value Value to set to
+ * @return void
+ ******************************************************************************/
+inline void SdrDevice::SetCarrierFreq(double vlaue)
+{
+    this->CarrierFreq = vlaue;
+}
+
+/*******************************************************************************
+ * @brief This function returns the carrier frequency
+ *
+ * @param void
+ * @return Carrier frequency
+ ******************************************************************************/
+inline double SdrDevice::GetCarrierFreq(void)
+{
+    return (this->CarrierFreq);
+}
+
+
+/*******************************************************************************
  * @brief This function configures the SDR device parameters
  *
  * @param void
@@ -256,5 +322,78 @@ static void ConfigureSdrDevice(void)
         SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
         SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
         SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
+
+        /* Set Tx Gain */
+        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetTxGain());
+        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetTxGain());
+        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetTxGain());
+        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetTxGain());
+
+        /* Set Carrier Freq */
+        //FIXME: Remove this or make configurable
+        if(i == 1)
+        {
+            SdrDeviceList[i]->SetCarrierFreq(2.7e9);
+        }
+        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetCarrierFreq());
+        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetCarrierFreq());
+        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetCarrierFreq());
+        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetCarrierFreq());
     }
+}
+
+/*******************************************************************************
+ * @brief This function setup Tx streams for all channels
+ *
+ * @param void
+ * @return void
+ ******************************************************************************/
+static void SetupTxStream(void)
+{
+    double fullScale = 0.0;
+    std::string format;
+    size_t elemSize;
+    SoapySDR::Stream *stream[MAX_SDR_DEVICES];
+
+    /* set to {0, 1} for MIMO XTRX_CH_AB option to be selected in driver */
+    std::vector<size_t> channels = {0};
+    
+    for(int i=0; i < SdrDevice::InstanceCounter; i++)
+    {
+       format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
+       elemSize = SoapySDR::formatToSize(format);
+
+        /* TODO: Currently only on Tx stream is opened per SDR device. The idea is to use same stream but switch channels as
+           mentioned in setupStream API */
+       SdrDeviceList[i]->StreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_TX,format,channels);
+
+       /* Activate stream */
+       //SdrDeviceList[i]->DeviceHandlePtr->activateStream(SdrDeviceList[i]->StreamHandle);
+    }
+
+}
+
+/*******************************************************************************
+ * @brief This function is a simple sine wave gen for testing
+ *
+ * @param void
+ * @return void
+ ******************************************************************************/
+void RunTest(void)
+{
+    std::vector<size_t> channels = {0};
+    std::string format;
+    double fullScale = 0.0;
+    unsigned int SdrDevNum = 0;
+    size_t elemSize;
+
+    format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
+
+    elemSize = SoapySDR::formatToSize(format);
+
+    runRateTestStreamLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->StreamHandle,SOAPY_SDR_TX,channels.size(), elemSize);
+
+    SdrDeviceList[SdrDevNum]->DeviceHandlePtr->closeStream(SdrDeviceList[SdrDevNum]->StreamHandle);
+    SoapySDR::Device::unmake(SdrDeviceList[SdrDevNum]->DeviceHandlePtr);
+
 }

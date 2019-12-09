@@ -3,7 +3,7 @@
 # We recommend that the support module be built in-tree with the driver.
 ########################################################################
 cmake_minimum_required(VERSION 2.6)
-project(xtrx_frontend CXX)
+project(test_sig CXX)
 
 enable_testing()
 
@@ -35,12 +35,6 @@ if (NOT SoapySDR_FOUND)
     return()
 endif ()
 
-include_directories(${MY_DEVICE_INCLUDE_DIRS})
-#SOAPY_SDR_MODULE_UTIL(
-#    TARGET xtrx_frontend
-#    SOURCES test.cpp
-#    LIBRARIES ${MY_DEVICE_LIBRARIES}
-#)
 
-add_executable(xtrx_frontend main.cpp sdr_util.cpp ${PROJECT_SOURCE_DIR}/test_signal/test.cpp)
-target_link_libraries(xtrx_frontend PUBLIC ${MY_DEVICE_LIBRARIES})
+add_executable(test_sig test.cpp)
+target_link_libraries(test_sig PUBLIC ${MY_DEVICE_LIBRARIES})
