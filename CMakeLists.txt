@@ -26,6 +26,7 @@ set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "")
 # build the module
 ########################################################################
 find_package(SoapySDR CONFIG)
+find_package(Threads)
 
 set(MY_DEVICE_INCLUDE_DIRS ${SoapySDR_INCLUDE_DIRS})
 set(MY_DEVICE_LIBRARIES ${SoapySDR_LIBRARIES})
@@ -43,4 +44,4 @@ include_directories(${MY_DEVICE_INCLUDE_DIRS})
 #)
 
 add_executable(xtrx_frontend main.cpp sdr_util.cpp ${PROJECT_SOURCE_DIR}/test_signal/test.cpp)
-target_link_libraries(xtrx_frontend PUBLIC ${MY_DEVICE_LIBRARIES})
+target_link_libraries(xtrx_frontend PUBLIC ${MY_DEVICE_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})

@@ -9,6 +9,7 @@
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Formats.hpp>
 #include <iostream>
+#include <pthread.h>
 
 //TODO: Remove this in final code
 #include "/home/AD.PATRIOT1TECH.COM/farhan.naeem/sdr_xtrx/mimo_dev/mimo_xtrx_sdr/test_signal/test.hpp"
@@ -80,7 +81,8 @@ class SdrDevice
     static unsigned char InstanceCounter;
     
     /* Pointer to stream */
-    SoapySDR::Stream *StreamHandle;
+    SoapySDR::Stream *TxStreamHandle;
+    SoapySDR::Stream *RxStreamHandle;
 };
 
 /* Initialize static mmber of class */
@@ -96,7 +98,9 @@ static void ParseParam(std::string param);
 static void ConfigureSdrDevice(void);
 static void SetupTxStream(void);
 static void RunTest(void);
-
+static void SetupRxStream(void);
+static void *TxThreadTest(void *);
+static void *RxThreadTest(void *);
 
 /*******************************************************************************
  * @brief This function enumerates connected SDR devices on PCIe bus
@@ -152,6 +156,9 @@ void OpenAndConfigureSdrDevice(SoapySDR::KwargsList &device_list)
 
     /* Setup Tx Stream */
     SetupTxStream();
+
+    /* Setup Rx Stream */
+    SetupRxStream();
 
     printf("Instance Created: %d\n\r",SdrDevice::InstanceCounter);
 
@@ -313,21 +320,24 @@ static void ConfigureSdrDevice(void)
         /* Set sample rate */
         //TODO: verify if only one setting is enough to configure for all channels in TX and RX direction
         SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
-        SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
+        //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
         SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
-        SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
+        //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
 
         /* Set bandwidth */
         SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
-        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
+        //SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
         SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
-        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
+        //SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
 
         /* Set Tx Gain */
         SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetTxGain());
-        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetTxGain());
+        //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetTxGain());
         SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetTxGain());
-        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetTxGain());
+        //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetTxGain());
+
+        SdrDeviceList[i]->DeviceHandlePtr->setAntenna(SOAPY_SDR_TX,CHAN_0,"TXH");
+        SdrDeviceList[i]->DeviceHandlePtr->setAntenna(SOAPY_SDR_RX,CHAN_0,"LNAW");
 
         /* Set Carrier Freq */
         //FIXME: Remove this or make configurable
@@ -336,9 +346,9 @@ static void ConfigureSdrDevice(void)
             SdrDeviceList[i]->SetCarrierFreq(2.7e9);
         }
         SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetCarrierFreq());
-        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetCarrierFreq());
+        //SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetCarrierFreq());
         SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetCarrierFreq());
-        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetCarrierFreq());
+        //SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetCarrierFreq());
     }
 }
 
@@ -365,10 +375,36 @@ static void SetupTxStream(void)
 
         /* TODO: Currently only on Tx stream is opened per SDR device. The idea is to use same stream but switch channels as
            mentioned in setupStream API */
-       SdrDeviceList[i]->StreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_TX,format,channels);
+       SdrDeviceList[i]->TxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_TX,format,channels);
 
-       /* Activate stream */
-       //SdrDeviceList[i]->DeviceHandlePtr->activateStream(SdrDeviceList[i]->StreamHandle);
+    }
+
+}
+
+/*******************************************************************************
+ * @brief This function setup Rx streams for all channels
+ *
+ * @param void
+ * @return void
+ ******************************************************************************/
+static void SetupRxStream(void)
+{
+    double fullScale = 0.0;
+    std::string format;
+    size_t elemSize;
+    SoapySDR::Stream *stream[MAX_SDR_DEVICES];
+
+    /* set to {0, 1} for MIMO XTRX_CH_AB option to be selected in driver */
+    std::vector<size_t> channels = {0};
+    
+    for(int i=0; i < SdrDevice::InstanceCounter; i++)
+    {
+       format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
+       elemSize = SoapySDR::formatToSize(format);
+
+        /* TODO: Currently only one Rx stream is opened per SDR device. Look for a method to open stream for both channels*/
+       SdrDeviceList[i]->RxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_RX,format,channels);
+
     }
 
 }
@@ -379,25 +415,81 @@ static void SetupTxStream(void)
  * @param void
  * @return void
  ******************************************************************************/
-void RunTest(void)
+static void RunTest(void)
 {
+    #if 0
     std::vector<size_t> channels = {0};
     std::string format;
     double fullScale = 0.0;
-    unsigned int SdrDevNum = 1;
+    unsigned int SdrDevNum = 0;
     size_t elemSize;
 
     format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
 
     elemSize = SoapySDR::formatToSize(format);
 
-    runRateTestStreamLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->StreamHandle,SOAPY_SDR_TX,channels.size(), elemSize);
+    runRateTestStreamLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->TxStreamHandle,SOAPY_SDR_TX,channels.size(), elemSize);
+#endif
+    pthread_t TxThread, RxThread;
+    
+    pthread_create(&TxThread,NULL,TxThreadTest,NULL);
+    pthread_create(&RxThread,NULL,RxThreadTest,NULL);
+
+    pthread_join(RxThread, NULL);
+    pthread_join(TxThread, NULL);
+    
 
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {
-        SdrDeviceList[i]->DeviceHandlePtr->deactivateStream(SdrDeviceList[i]->StreamHandle);
-        SdrDeviceList[i]->DeviceHandlePtr->closeStream(SdrDeviceList[i]->StreamHandle);
+        SdrDeviceList[i]->DeviceHandlePtr->deactivateStream(SdrDeviceList[i]->TxStreamHandle);
+        SdrDeviceList[i]->DeviceHandlePtr->closeStream(SdrDeviceList[i]->TxStreamHandle);
+
+        SdrDeviceList[i]->DeviceHandlePtr->deactivateStream(SdrDeviceList[i]->RxStreamHandle);
+        SdrDeviceList[i]->DeviceHandlePtr->closeStream(SdrDeviceList[i]->RxStreamHandle);
+
         SoapySDR::Device::unmake(SdrDeviceList[i]->DeviceHandlePtr);
     }
 
+}
+
+/*******************************************************************************
+ * @brief This function is a simple thread to control Tx
+ *
+ * @param void* pointer
+ * @return void pointer
+ ******************************************************************************/
+static void *TxThreadTest(void *)
+{
+    std::vector<size_t> channels = {0};
+    std::string format;
+    double fullScale = 0.0;
+    unsigned int SdrDevNum = 0;
+    size_t elemSize;
+
+    format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
+
+    elemSize = SoapySDR::formatToSize(format);
+
+    runRateTestStreamLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->TxStreamHandle,SOAPY_SDR_TX,channels.size(), elemSize);
+}
+
+/*******************************************************************************
+ * @brief This function is a simple thread to control Rx
+ *
+ * @param void* pointer
+ * @return void pointer
+ ******************************************************************************/
+static void *RxThreadTest(void *)
+{
+    std::vector<size_t> channels = {0};
+    std::string format;
+    double fullScale = 0.0;
+    unsigned int SdrDevNum = 0;
+    size_t elemSize;
+
+    format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
+
+    elemSize = SoapySDR::formatToSize(format);
+
+    RxLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->RxStreamHandle,SOAPY_SDR_RX,channels.size(), elemSize);
 }

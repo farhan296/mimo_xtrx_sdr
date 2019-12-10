@@ -10,4 +10,11 @@ void runRateTestStreamLoop(
     const size_t numChans,
     const size_t elemSize);
 
+void RxLoop(
+    SoapySDR::Device *device,
+    SoapySDR::Stream *stream,
+    const int direction,
+    const size_t numChans,
+    const size_t elemSize);
+
 #endif

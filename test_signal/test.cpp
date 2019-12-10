@@ -71,7 +71,7 @@ void runRateTestStreamLoop(
     auto timeLastStatus = std::chrono::high_resolution_clock::now();
     int spinIndex(0);
 
-    std::cout << "Starting stream loop, press Ctrl+C to exit..." << std::endl;
+    std::cout << "Starting TX stream loop, press Ctrl+C to exit..." << std::endl;
     device->activateStream(stream);
     //setReg();
     signal(SIGINT, sigIntHandler);
@@ -150,6 +150,84 @@ void runRateTestStreamLoop(
             printf("\n ");
         }
         //usleep(1000);
+    }
+    //device->deactivateStream(stream);
+}
+
+void RxLoop(
+    SoapySDR::Device *device,
+    SoapySDR::Stream *stream,
+    const int direction,
+    const size_t numChans,
+    const size_t elemSize)
+{
+    //allocate buffers for the stream read/write
+    const size_t numElems = device->getStreamMTU(stream);
+    std::vector<std::vector<char>> buffMem_0(numChans, std::vector<char>(elemSize*numElems));
+    std::vector<void *> buffs(numChans);
+    
+    
+    buffs[0] = buffMem_0[0].data();
+
+    //state collected in this loop
+    unsigned int overflows(0);
+    unsigned int underflows(0);
+    unsigned long long totalSamples(0);
+    const auto startTime = std::chrono::high_resolution_clock::now();
+    auto timeLastPrint = std::chrono::high_resolution_clock::now();
+    auto timeLastSpin = std::chrono::high_resolution_clock::now();
+    auto timeLastStatus = std::chrono::high_resolution_clock::now();
+    int spinIndex(0);
+
+    std::cout << "Starting RX stream loop, press Ctrl+C to exit..." << std::endl;
+    device->activateStream(stream);
+    //setReg();
+    signal(SIGINT, sigIntHandler);
+    while (not loopDone)
+    {
+        int ret(0);
+        int flags(0);
+        long long timeNs(0);
+        
+        ret = device->readStream(stream, buffs.data(), elemSize*numElems, flags, timeNs);
+        //printf("ret=%d, flags=%d, timeNs=%lld\n", ret, flags, timeNs);
+#if 1
+        for (size_t samples = 0; samples < elemSize*numElems; samples++)
+        {
+            printf("%f  ",buffMem_0[0][samples]);
+        }
+#endif
+        if (ret == SOAPY_SDR_TIMEOUT) continue;
+        if (ret == SOAPY_SDR_OVERFLOW)
+        {
+            overflows++;
+            continue;
+        }
+        if (ret == SOAPY_SDR_UNDERFLOW)
+        {
+            underflows++;
+            continue;
+        }
+        if (ret < 0)
+        {
+            std::cerr << "Unexpected stream error " << SoapySDR::errToStr(ret) << std::endl;
+            break;
+        }
+        totalSamples += ret;
+
+        const auto now = std::chrono::high_resolution_clock::now();
+       
+        if (timeLastPrint + std::chrono::seconds(5) < now)
+        {
+            timeLastPrint = now;
+            const auto timePassed = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime);
+            const auto sampleRate = double(totalSamples)/timePassed.count();
+            printf("\b%g Msps\t%g MBps", sampleRate, sampleRate*numChans*elemSize);
+            if (overflows != 0) printf("\tOverflows %u", overflows);
+            if (underflows != 0) printf("\tUnderflows %u", underflows);
+            printf("\n ");
+        }
+        //usleep(100000);
     }
     //device->deactivateStream(stream);
 }
