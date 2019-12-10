@@ -151,5 +151,5 @@ void runRateTestStreamLoop(
         }
         //usleep(1000);
     }
-    device->deactivateStream(stream);
+    //device->deactivateStream(stream);
 }

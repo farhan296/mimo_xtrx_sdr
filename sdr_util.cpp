@@ -384,7 +384,7 @@ void RunTest(void)
     std::vector<size_t> channels = {0};
     std::string format;
     double fullScale = 0.0;
-    unsigned int SdrDevNum = 0;
+    unsigned int SdrDevNum = 1;
     size_t elemSize;
 
     format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
@@ -393,7 +393,11 @@ void RunTest(void)
 
     runRateTestStreamLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->StreamHandle,SOAPY_SDR_TX,channels.size(), elemSize);
 
-    SdrDeviceList[SdrDevNum]->DeviceHandlePtr->closeStream(SdrDeviceList[SdrDevNum]->StreamHandle);
-    SoapySDR::Device::unmake(SdrDeviceList[SdrDevNum]->DeviceHandlePtr);
+    for(int i=0; i < SdrDevice::InstanceCounter; i++)
+    {
+        SdrDeviceList[i]->DeviceHandlePtr->deactivateStream(SdrDeviceList[i]->StreamHandle);
+        SdrDeviceList[i]->DeviceHandlePtr->closeStream(SdrDeviceList[i]->StreamHandle);
+        SoapySDR::Device::unmake(SdrDeviceList[i]->DeviceHandlePtr);
+    }
 
 }
