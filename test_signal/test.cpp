@@ -16,7 +16,9 @@
 #include "/home/AD.PATRIOT1TECH.COM/farhan.naeem/sdr_xtrx/images/sources/build/liblms7002m/lms7002m_defs.h"
 #include "/home/AD.PATRIOT1TECH.COM/farhan.naeem/sdr_xtrx/images/sources/libxtrx/xtrx_fe.h"
 #include <math.h>
+#include <fstream>
 
+unsigned char trig =0;
 static sig_atomic_t loopDone = false;
 static void sigIntHandler(const int)
 {
@@ -144,11 +146,12 @@ void runRateTestStreamLoop(
             timeLastPrint = now;
             const auto timePassed = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime);
             const auto sampleRate = double(totalSamples)/timePassed.count();
-            printf("\b%g Msps\t%g MBps", sampleRate, sampleRate*numChans*elemSize);
-            if (overflows != 0) printf("\tOverflows %u", overflows);
-            if (underflows != 0) printf("\tUnderflows %u", underflows);
+            printf("\b--TX--%g Msps\t%g MBps", sampleRate, sampleRate*numChans*elemSize);
+            if (overflows != 0) printf("\t--TX--Overflows %u", overflows);
+            if (underflows != 0) printf("\t--TX--Underflows %u", underflows);
             printf("\n ");
         }
+        trig = 1;
         //usleep(1000);
     }
     //device->deactivateStream(stream);
@@ -161,13 +164,22 @@ void RxLoop(
     const size_t numChans,
     const size_t elemSize)
 {
+    FILE *fileptrReal, *fileptrImg, *fileptr;
+    fileptr = fopen("rx_plot.txt","w");
+    //fileptrReal = fopen("rx_real.txt","w");
+    //fileptrImg = fopen("rx_imag.txt","w");
+
     //allocate buffers for the stream read/write
     const size_t numElems = device->getStreamMTU(stream);
-    std::vector<std::vector<char>> buffMem_0(numChans, std::vector<char>(elemSize*numElems));
+    //std::vector<std::vector<char>> buffMem_0(numChans, std::vector<char>(elemSize*numElems));
+    std::complex <float> buffMem_0[elemSize*numElems];
+    
     std::vector<void *> buffs(numChans);
     
-    
-    buffs[0] = buffMem_0[0].data();
+    int loop =0 ;
+    //buffs[0] = buffMem_0[0].data();
+
+    buffs[0] = &buffMem_0[0];
 
     //state collected in this loop
     unsigned int overflows(0);
@@ -183,20 +195,26 @@ void RxLoop(
     device->activateStream(stream);
     //setReg();
     signal(SIGINT, sigIntHandler);
+    usleep(2000000);
     while (not loopDone)
     {
         int ret(0);
         int flags(0);
         long long timeNs(0);
-        
+       if((loop < 1) &&(trig == 1))
+       { loop++;
         ret = device->readStream(stream, buffs.data(), elemSize*numElems, flags, timeNs);
         //printf("ret=%d, flags=%d, timeNs=%lld\n", ret, flags, timeNs);
 #if 1
-        for (size_t samples = 0; samples < elemSize*numElems; samples++)
+        for (size_t samples = 0; samples < ret; samples++)
         {
-            printf("%f  ",buffMem_0[0][samples]);
+            //printf("%f  ",buffMem_0[0][samples]);
+            fprintf(fileptr,"%f %f\n",buffMem_0[samples].real(), buffMem_0[samples].imag());
+            //fprintf(fileptrReal,"%f\n",buffMem_0[samples].real());
+            //fprintf(fileptrImg,"%f\n",buffMem_0[samples].imag());
         }
 #endif
+       }
         if (ret == SOAPY_SDR_TIMEOUT) continue;
         if (ret == SOAPY_SDR_OVERFLOW)
         {
@@ -222,12 +240,16 @@ void RxLoop(
             timeLastPrint = now;
             const auto timePassed = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime);
             const auto sampleRate = double(totalSamples)/timePassed.count();
-            printf("\b%g Msps\t%g MBps", sampleRate, sampleRate*numChans*elemSize);
-            if (overflows != 0) printf("\tOverflows %u", overflows);
-            if (underflows != 0) printf("\tUnderflows %u", underflows);
+            printf("\b--RX--%g Msps\t%g MBps", sampleRate, sampleRate*numChans*elemSize);
+            if (overflows != 0) printf("\t--RX--Overflows %u", overflows);
+            if (underflows != 0) printf("\t--RX--Underflows %u", underflows);
             printf("\n ");
         }
         //usleep(100000);
+    
     }
+    fclose(fileptr);
+    //fclose(fileptrReal);
+    //fclose(fileptrImg);
     //device->deactivateStream(stream);
 }

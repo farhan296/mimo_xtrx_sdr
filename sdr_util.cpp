@@ -38,6 +38,9 @@ class SdrDevice
     /* Specify Tx gain (dB) (Default: 52 (max) Range: 0 - 52) */
     double TxGain;
 
+    /* Specify Tx gain (dB) (Default: 52 (max) Range: 0 - 30) */
+    double RxGain;
+
     /* Specify Tx antenna (Default: TXH, options: TXH, TXW) */
     std::string TxAnt;
 
@@ -68,6 +71,8 @@ class SdrDevice
     double GetAmpl(void);
     void SetTxGain(double vlaue);
     double GetTxGain(void);
+    void SetRxGain(double vlaue);
+    double GetRxGain(void);
     void SetTxAnt(std::string ant);
     std::string GetTxAnt(void);
     void SetCarrierFreq(double vlaue);
@@ -187,6 +192,9 @@ SdrDevice::SdrDevice()
     /* Specify Tx gain (dB) (Default: 52 (max) Range: 0 - 52) */
     TxGain = 52;
 
+    /* Specify Tx gain (dB) (Default: 30 (max) Range: 0 - 30) */
+    RxGain = 30;
+
     /* Specify Tx antenna (Default: TXH, options: TXH, TXW) */
     TxAnt = "TXH";
 
@@ -212,9 +220,11 @@ SdrDevice::SdrDevice()
 SdrDevice::~SdrDevice()
 {
     //TODO: Make sure to unmake/close all open SDR devices as well
+    //FIXME: Not being called check the cause
     for(int i=0; i < SdrDeviceList.size(); i++)
     {
         delete SdrDeviceList[i];
+        printf("DelSdrDev=%i",i);
     }
 }
 
@@ -285,6 +295,28 @@ inline double SdrDevice::GetTxGain(void)
 }
 
 /*******************************************************************************
+ * @brief This function sets the Rx gain
+ *
+ * @param value Value to set to
+ * @return void
+ ******************************************************************************/
+inline void SdrDevice::SetRxGain(double vlaue)
+{
+    this->RxGain = vlaue;
+}
+
+/*******************************************************************************
+ * @brief This function returns the Rx gain
+ *
+ * @param void
+ * @return Tx gain
+ ******************************************************************************/
+inline double SdrDevice::GetRxGain(void)
+{
+    return (this->RxGain);
+}
+
+/*******************************************************************************
  * @brief This function sets the carrier frequency
  *
  * @param value Value to set to
@@ -317,11 +349,15 @@ static void ConfigureSdrDevice(void)
 {
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {
+        SdrDeviceList[i]->DeviceHandlePtr->setAntenna(SOAPY_SDR_TX,CHAN_0,"TXH");
+        SdrDeviceList[i]->DeviceHandlePtr->setAntenna(SOAPY_SDR_RX,CHAN_0,"LNAH");
+        
         /* Set sample rate */
         //TODO: verify if only one setting is enough to configure for all channels in TX and RX direction
         SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
         //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
-        SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
+        //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
+        SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_0,1e6);
         //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
 
         /* Set bandwidth */
@@ -333,11 +369,9 @@ static void ConfigureSdrDevice(void)
         /* Set Tx Gain */
         SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetTxGain());
         //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetTxGain());
-        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetTxGain());
+        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetRxGain());
         //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetTxGain());
 
-        SdrDeviceList[i]->DeviceHandlePtr->setAntenna(SOAPY_SDR_TX,CHAN_0,"TXH");
-        SdrDeviceList[i]->DeviceHandlePtr->setAntenna(SOAPY_SDR_RX,CHAN_0,"LNAW");
 
         /* Set Carrier Freq */
         //FIXME: Remove this or make configurable
