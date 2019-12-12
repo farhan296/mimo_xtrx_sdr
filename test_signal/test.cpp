@@ -32,46 +32,39 @@ void runRateTestStreamLoop(
     const size_t numChans,
     const size_t elemSize)
 {
-    
-    unsigned char toggleVal = 0;
+    FILE  *fileptr;
+    fileptr = fopen("tx_plot.txt","w");
+
     //allocate buffers for the stream read/write
     const size_t numElems = device->getStreamMTU(stream);
-    std::vector<std::vector<double>> buffMem_1(numChans, std::vector<double>(elemSize*numElems));
-    std::vector<std::vector<char>> buffMem_0(numChans, std::vector<char>(elemSize*numElems));
+    std::vector<std::vector<double>> buffMem(numChans, std::vector<double>(elemSize*numElems));
+
     std::vector<void *> buffs(numChans);
-    std::vector<void *> buffs1(numChans);
-    std::vector<void *> buffs0(numChans);
-    double values[elemSize*numElems];
     double m_amplitude = 0.7;
      double sampleRate = 1e6;
-    double m_frequency = sampleRate/10;
-    double m_phase = 0.0;
-    double m_time = 0.0;
-    
-    double m_deltaTime = (double)((double)1 / (double)sampleRate); 
+    double m_frequency = sampleRate/100;
+    float phaseIncrement = (float)((2*M_PI*m_frequency)/(float)sampleRate) ;
+    float currentPhase = 0.0;
+
     for (size_t i = 0; i < numChans; i++)
     {    for (size_t samples = 0; samples < elemSize*numElems; samples++)
         {
-            //buffMem_1[i][j] = 1U;
-            //buffMem_0[i][j] = 0U;
-            double rads = M_PI/180;
-            //buffMem_1[i][m_time] = (double)((double)m_amplitude*(double)sin(2*M_PI*(m_frequency /sampleRate )*m_time + M_PI/2));
-            buffMem_1[i][samples] = (double)((double)m_amplitude*(double)sin(2*M_PI* m_frequency* m_time + m_phase));
-            m_time += m_deltaTime;
+            buffMem[i][samples] =  (double) (m_amplitude * (double)sin(currentPhase));
+            fprintf(fileptr,"%lu %f\n",samples, buffMem[i][samples]);
+           currentPhase+=phaseIncrement; 
         }
 
     }
-    buffs1[0] = buffMem_1[0].data();
-     buffs0[0] = buffMem_0[0].data();
+
+    fclose(fileptr);
+    buffs[0] = buffMem[0].data();
+
     //state collected in this loop
     unsigned int overflows(0);
     unsigned int underflows(0);
     unsigned long long totalSamples(0);
     const auto startTime = std::chrono::high_resolution_clock::now();
     auto timeLastPrint = std::chrono::high_resolution_clock::now();
-    auto timeLastSpin = std::chrono::high_resolution_clock::now();
-    auto timeLastStatus = std::chrono::high_resolution_clock::now();
-    int spinIndex(0);
 
     std::cout << "Starting TX stream loop, press Ctrl+C to exit..." << std::endl;
     device->activateStream(stream);
@@ -88,16 +81,9 @@ void runRateTestStreamLoop(
             ret = device->readStream(stream, buffs.data(), numElems, flags, timeNs);
             break;
         case SOAPY_SDR_TX:
-           // if(toggleVal == 0)
-            //{
-              //  toggleVal = 1;
-              //  ret = device->writeStream(stream, buffs0.data(), numElems, flags, timeNs);
-            //}
-            //else
-            //{
-              //  toggleVal = 0;
-                ret = device->writeStream(stream, buffs1.data(), elemSize*numElems, flags, timeNs);
-            //}
+           
+            ret = device->writeStream(stream, buffs.data(), elemSize*numElems, flags, timeNs);
+
             break;
         }
 
@@ -120,27 +106,7 @@ void runRateTestStreamLoop(
         totalSamples += ret;
 
         const auto now = std::chrono::high_resolution_clock::now();
-        /*if (timeLastSpin + std::chrono::milliseconds(300) < now)
-        {
-            timeLastSpin = now;
-            static const char spin[] = {"|/-\\"};
-            printf("\b%c", spin[(spinIndex++)%4]);
-            fflush(stdout);
-        }*/
-        //occasionally read out the stream status (non blocking)
-        /*if (timeLastStatus + std::chrono::seconds(1) < now)
-        {
-            timeLastStatus = now;
-            while (true)
-            {
-                size_t chanMask; int flags; long long timeNs;
-                ret = device->readStreamStatus(stream, chanMask, flags, timeNs, 0);
-                if (ret == SOAPY_SDR_OVERFLOW) overflows++;
-                else if (ret == SOAPY_SDR_UNDERFLOW) underflows++;
-                else if (ret == SOAPY_SDR_TIME_ERROR) {}
-                else break;
-            }
-        }*/
+       
         if (timeLastPrint + std::chrono::seconds(5) < now)
         {
             timeLastPrint = now;
@@ -151,23 +117,18 @@ void runRateTestStreamLoop(
             if (underflows != 0) printf("\t--TX--Underflows %u", underflows);
             printf("\n ");
         }
-        trig = 1;
-        //usleep(1000);
     }
-    //device->deactivateStream(stream);
+    
 }
 
 void RxLoop(
     SoapySDR::Device *device,
     SoapySDR::Stream *stream,
-    const int direction,
     const size_t numChans,
     const size_t elemSize)
 {
-    FILE *fileptrReal, *fileptrImg, *fileptr;
+    FILE  *fileptr;
     fileptr = fopen("rx_plot.txt","w");
-    //fileptrReal = fopen("rx_real.txt","w");
-    //fileptrImg = fopen("rx_imag.txt","w");
 
     //allocate buffers for the stream read/write
     const size_t numElems = device->getStreamMTU(stream);
@@ -187,15 +148,12 @@ void RxLoop(
     unsigned long long totalSamples(0);
     const auto startTime = std::chrono::high_resolution_clock::now();
     auto timeLastPrint = std::chrono::high_resolution_clock::now();
-    auto timeLastSpin = std::chrono::high_resolution_clock::now();
-    auto timeLastStatus = std::chrono::high_resolution_clock::now();
-    int spinIndex(0);
 
     std::cout << "Starting RX stream loop, press Ctrl+C to exit..." << std::endl;
     device->activateStream(stream);
     //setReg();
     signal(SIGINT, sigIntHandler);
-    usleep(2000000);
+    
     while (not loopDone)
     {
         int ret(0);
@@ -206,13 +164,16 @@ void RxLoop(
         ret = device->readStream(stream, buffs.data(), elemSize*numElems, flags, timeNs);
         //printf("ret=%d, flags=%d, timeNs=%lld\n", ret, flags, timeNs);
 #if 1
-        for (size_t samples = 0; samples < ret; samples++)
+//for(size_t samples1 = 0; samples1 < 500; samples1++)
+{
+        for (int samples = 0; samples < ret; samples++)
         {
             //printf("%f  ",buffMem_0[0][samples]);
             fprintf(fileptr,"%f %f\n",buffMem_0[samples].real(), buffMem_0[samples].imag());
             //fprintf(fileptrReal,"%f\n",buffMem_0[samples].real());
             //fprintf(fileptrImg,"%f\n",buffMem_0[samples].imag());
         }
+       }
 #endif
        }
         if (ret == SOAPY_SDR_TIMEOUT) continue;
