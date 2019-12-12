@@ -37,28 +37,30 @@ void runRateTestStreamLoop(
 
     //allocate buffers for the stream read/write
     const size_t numElems = device->getStreamMTU(stream);
-    std::vector<std::vector<double>> buffMem(numChans, std::vector<double>(elemSize*numElems));
-
-    std::vector<void *> buffs(numChans);
+    //std::vector<std::vector<float>> buffMem(numChans, std::vector<float>(elemSize*numElems));
+    float buffMem[elemSize*numElems];
+    //std::vector<void *> buffs(numChans);
+    void * buffs[]={buffMem};
     double m_amplitude = 0.7;
      double sampleRate = 1e6;
     double m_frequency = sampleRate/100;
     float phaseIncrement = (float)((2*M_PI*m_frequency)/(float)sampleRate) ;
     float currentPhase = 0.0;
 
-    for (size_t i = 0; i < numChans; i++)
+    //for (size_t i = 0; i < numChans; i++)
     {    for (size_t samples = 0; samples < elemSize*numElems; samples++)
         {
-            buffMem[i][samples] =  (double) (m_amplitude * (double)sin(currentPhase));
-            fprintf(fileptr,"%lu %f\n",samples, buffMem[i][samples]);
+            buffMem[samples] =  (double) (m_amplitude * (double)sin(currentPhase));
+            fprintf(fileptr,"%lu %f\n",samples, buffMem[samples]);
            currentPhase+=phaseIncrement; 
         }
 
     }
 
     fclose(fileptr);
-    buffs[0] = buffMem[0].data();
+    //buffs[0] = buffMem[0].data();
 
+    buffs[0] = &buffMem[0];
     //state collected in this loop
     unsigned int overflows(0);
     unsigned int underflows(0);
@@ -78,11 +80,11 @@ void runRateTestStreamLoop(
         switch(direction)
         {
         case SOAPY_SDR_RX:
-            ret = device->readStream(stream, buffs.data(), numElems, flags, timeNs);
+            //ret = device->readStream(stream, buffs.data(), numElems, flags, timeNs);
             break;
         case SOAPY_SDR_TX:
            
-            ret = device->writeStream(stream, buffs.data(), elemSize*numElems, flags, timeNs);
+            ret = device->writeStream(stream, buffs, elemSize*numElems, flags, timeNs);
 
             break;
         }
@@ -117,6 +119,7 @@ void runRateTestStreamLoop(
             if (underflows != 0) printf("\t--TX--Underflows %u", underflows);
             printf("\n ");
         }
+        trig=1;
     }
     
 }
@@ -135,7 +138,7 @@ void RxLoop(
     //std::vector<std::vector<char>> buffMem_0(numChans, std::vector<char>(elemSize*numElems));
     std::complex <float> buffMem_0[elemSize*numElems];
     
-    std::vector<void *> buffs(numChans);
+    void* buffs[]={buffMem_0};
     
     int loop =0 ;
     //buffs[0] = buffMem_0[0].data();
@@ -159,9 +162,8 @@ void RxLoop(
         int ret(0);
         int flags(0);
         long long timeNs(0);
-       if((loop < 1) &&(trig == 1))
-       { loop++;
-        ret = device->readStream(stream, buffs.data(), elemSize*numElems, flags, timeNs);
+        
+        ret = device->readStream(stream, buffs, elemSize*numElems, flags, timeNs);
         //printf("ret=%d, flags=%d, timeNs=%lld\n", ret, flags, timeNs);
 #if 1
 //for(size_t samples1 = 0; samples1 < 500; samples1++)
@@ -175,7 +177,6 @@ void RxLoop(
         }
        }
 #endif
-       }
         if (ret == SOAPY_SDR_TIMEOUT) continue;
         if (ret == SOAPY_SDR_OVERFLOW)
         {

@@ -10,6 +10,7 @@
 #include <SoapySDR/Formats.hpp>
 #include <iostream>
 #include <pthread.h>
+#include <unistd.h>
 
 //TODO: Remove this in final code
 #include "/home/AD.PATRIOT1TECH.COM/farhan.naeem/sdr_xtrx/mimo_dev/mimo_xtrx_sdr/test_signal/test.hpp"
@@ -145,7 +146,7 @@ void OpenAndConfigureSdrDevice(SoapySDR::KwargsList &device_list)
     SoapySDR::Device *device(nullptr);
 
     /* Open SDR devices */
-    for (int i=0; i < device_list.size(); i++)
+    for (unsigned int i=0; i < device_list.size(); i++)
     {
         device = SoapySDR::Device::make_after_enum(device_list[i]);
 
@@ -221,7 +222,7 @@ SdrDevice::~SdrDevice()
 {
     //TODO: Make sure to unmake/close all open SDR devices as well
     //FIXME: Not being called check the cause
-    for(int i=0; i < SdrDeviceList.size(); i++)
+    for(unsigned int i=0; i < SdrDeviceList.size(); i++)
     {
         delete SdrDeviceList[i];
         printf("DelSdrDev=%i",i);
@@ -396,8 +397,6 @@ static void SetupTxStream(void)
 {
     double fullScale = 0.0;
     std::string format;
-    size_t elemSize;
-    SoapySDR::Stream *stream[MAX_SDR_DEVICES];
 
     /* set to {0, 1} for MIMO XTRX_CH_AB option to be selected in driver */
     std::vector<size_t> channels = {0};
@@ -405,11 +404,10 @@ static void SetupTxStream(void)
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {
        format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
-       elemSize = SoapySDR::formatToSize(format);
 
         /* TODO: Currently only on Tx stream is opened per SDR device. The idea is to use same stream but switch channels as
            mentioned in setupStream API */
-       SdrDeviceList[i]->TxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_TX,format,channels);
+       SdrDeviceList[i]->TxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_TX,SOAPY_SDR_CS16);
 
     }
 
@@ -425,8 +423,6 @@ static void SetupRxStream(void)
 {
     double fullScale = 0.0;
     std::string format;
-    size_t elemSize;
-    SoapySDR::Stream *stream[MAX_SDR_DEVICES];
 
     /* set to {0, 1} for MIMO XTRX_CH_AB option to be selected in driver */
     std::vector<size_t> channels = {0};
@@ -434,10 +430,9 @@ static void SetupRxStream(void)
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {
        format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
-       elemSize = SoapySDR::formatToSize(format);
 
         /* TODO: Currently only one Rx stream is opened per SDR device. Look for a method to open stream for both channels*/
-       SdrDeviceList[i]->RxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_RX,format,channels);
+       SdrDeviceList[i]->RxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_RX,SOAPY_SDR_CF32);
 
     }
 
@@ -467,8 +462,10 @@ static void RunTest(void)
     pthread_t TxThread, RxThread;
     
     pthread_create(&TxThread,NULL,TxThreadTest,NULL);
+    
     pthread_create(&RxThread,NULL,RxThreadTest,NULL);
-
+    //RxThreadTest(NULL);
+    //TxThreadTest(NULL);
     pthread_join(TxThread, NULL);
     pthread_join(RxThread, NULL);    
 
@@ -501,7 +498,7 @@ static void *TxThreadTest(void *)
 
     format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
 
-    elemSize = SoapySDR::formatToSize(format);
+    elemSize = SoapySDR::formatToSize(SOAPY_SDR_CS16);
 
     runRateTestStreamLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->TxStreamHandle,SOAPY_SDR_TX,channels.size(), elemSize);
 }
@@ -522,7 +519,7 @@ static void *RxThreadTest(void *)
 
     format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
 
-    elemSize = SoapySDR::formatToSize(format);
+    elemSize = SoapySDR::formatToSize(SOAPY_SDR_CF32);
 
     RxLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->RxStreamHandle,channels.size(), elemSize);
 }
