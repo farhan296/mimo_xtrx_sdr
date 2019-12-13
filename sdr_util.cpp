@@ -463,11 +463,11 @@ static void RunTest(void)
     
     pthread_create(&TxThread,NULL,TxThreadTest,NULL);
     
-    //pthread_create(&RxThread,NULL,RxThreadTest,NULL);
+    pthread_create(&RxThread,NULL,RxThreadTest,NULL);
     //RxThreadTest(NULL);
     //TxThreadTest(NULL);
     pthread_join(TxThread, NULL);
-    //pthread_join(RxThread, NULL);    
+    pthread_join(RxThread, NULL);    
 
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {

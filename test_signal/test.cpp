@@ -36,7 +36,7 @@ void runRateTestStreamLoop(
     const size_t numElems = device->getStreamMTU(stream);
     double buffMem[elemSize*numElems];
     void * buffs[]={buffMem};
-    double m_amplitude = 0.7;
+    double m_amplitude = 0.4;
     double sampleRate = 1e6;
     double m_frequency = sampleRate/10;
     double DeltaTime = (double)((double)(1)/(double)sampleRate) ;
@@ -70,40 +70,11 @@ void runRateTestStreamLoop(
             CurrentTime+=DeltaTime; 
         }
         
-        printf("CurrentTime: %f \n", CurrentTime);
+        //printf("CurrentTime: %f \n", CurrentTime);
         ret = device->writeStream(stream, buffs, elemSize*numElems, flags, timeNs);
-
+        //printf("Here\n", CurrentTime);
         
-        if (ret == SOAPY_SDR_TIMEOUT) continue;
-        if (ret == SOAPY_SDR_OVERFLOW)
-        {
-            overflows++;
-            continue;
-        }
-        if (ret == SOAPY_SDR_UNDERFLOW)
-        {
-            underflows++;
-            continue;
-        }
-        if (ret < 0)
-        {
-            std::cerr << "Unexpected stream error " << SoapySDR::errToStr(ret) << std::endl;
-            break;
-        }
-        totalSamples += ret;
-
-        const auto now = std::chrono::high_resolution_clock::now();
        
-        if (timeLastPrint + std::chrono::seconds(5) < now)
-        {
-            timeLastPrint = now;
-            const auto timePassed = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime);
-            const auto sampleRate = double(totalSamples)/timePassed.count();
-            printf("\b--TX--%g Msps\t%g MBps", sampleRate, sampleRate*numChans*elemSize);
-            if (overflows != 0) printf("\t--TX--Overflows %u", overflows);
-            if (underflows != 0) printf("\t--TX--Underflows %u", underflows);
-            printf("\n ");
-        }
     }
     
 }
@@ -150,15 +121,15 @@ void RxLoop(
         ret = device->readStream(stream, buffs, elemSize*numElems, flags, timeNs);
         //printf("ret=%d, flags=%d, timeNs=%lld\n", ret, flags, timeNs);
 #if 1
-//for(size_t samples1 = 0; samples1 < 500; samples1++)
-{
-        for (int samples = 0; samples < ret; samples++)
+        if(ret >0)
         {
+            for (int samples = 0; samples < ret; samples++)
+            {
             //printf("%f  ",buffMem_0[0][samples]);
             fprintf(fileptr,"%f %f\n",buffMem_0[samples].real(), buffMem_0[samples].imag());
             //fprintf(fileptrReal,"%f\n",buffMem_0[samples].real());
             //fprintf(fileptrImg,"%f\n",buffMem_0[samples].imag());
-        }
+            }
        }
 #endif
         if (ret == SOAPY_SDR_TIMEOUT) continue;
