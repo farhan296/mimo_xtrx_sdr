@@ -396,18 +396,18 @@ static void ConfigureSdrDevice(void)
 static void SetupTxStream(void)
 {
     double fullScale = 0.0;
-    std::string format;
+    //std::string format;
 
     /* set to {0, 1} for MIMO XTRX_CH_AB option to be selected in driver */
     std::vector<size_t> channels = {0};
     
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {
-       format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
+       //format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
 
         /* TODO: Currently only on Tx stream is opened per SDR device. The idea is to use same stream but switch channels as
            mentioned in setupStream API */
-       SdrDeviceList[i]->TxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_TX,SOAPY_SDR_CS16);
+       SdrDeviceList[i]->TxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_TX,SOAPY_SDR_CF32);
 
     }
 
@@ -422,14 +422,14 @@ static void SetupTxStream(void)
 static void SetupRxStream(void)
 {
     double fullScale = 0.0;
-    std::string format;
+    //std::string format;
 
     /* set to {0, 1} for MIMO XTRX_CH_AB option to be selected in driver */
     std::vector<size_t> channels = {0};
     
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {
-       format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
+       //format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
 
         /* TODO: Currently only one Rx stream is opened per SDR device. Look for a method to open stream for both channels*/
        SdrDeviceList[i]->RxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_RX,SOAPY_SDR_CF32);
@@ -463,11 +463,11 @@ static void RunTest(void)
     
     pthread_create(&TxThread,NULL,TxThreadTest,NULL);
     
-    pthread_create(&RxThread,NULL,RxThreadTest,NULL);
+    //pthread_create(&RxThread,NULL,RxThreadTest,NULL);
     //RxThreadTest(NULL);
     //TxThreadTest(NULL);
     pthread_join(TxThread, NULL);
-    pthread_join(RxThread, NULL);    
+    //pthread_join(RxThread, NULL);    
 
     for(int i=0; i < SdrDevice::InstanceCounter; i++)
     {
@@ -491,14 +491,16 @@ static void RunTest(void)
 static void *TxThreadTest(void *)
 {
     std::vector<size_t> channels = {0};
-    std::string format;
+    //std::string format;
     double fullScale = 0.0;
     unsigned int SdrDevNum = 0;
     size_t elemSize;
 
-    format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
+    //format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_TX,CHAN_0,fullScale);
 
-    elemSize = SoapySDR::formatToSize(SOAPY_SDR_CS16);
+    elemSize = SoapySDR::formatToSize(SOAPY_SDR_CF32);
+
+    //TODO: Make runRateTestStreamLoop configurable and send &SdrDeviceList[SdrDevNum] as first argument
 
     runRateTestStreamLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->TxStreamHandle,SOAPY_SDR_TX,channels.size(), elemSize);
 }
@@ -512,12 +514,12 @@ static void *TxThreadTest(void *)
 static void *RxThreadTest(void *)
 {
     std::vector<size_t> channels = {0};
-    std::string format;
+    //std::string format;
     double fullScale = 0.0;
     unsigned int SdrDevNum = 0;
     size_t elemSize;
 
-    format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
+    //format = SdrDeviceList[SdrDevNum]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
 
     elemSize = SoapySDR::formatToSize(SOAPY_SDR_CF32);
 

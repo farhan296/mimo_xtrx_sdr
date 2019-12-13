@@ -18,7 +18,6 @@
 #include <math.h>
 #include <fstream>
 
-unsigned char trig =0;
 static sig_atomic_t loopDone = false;
 static void sigIntHandler(const int)
 {
@@ -32,35 +31,20 @@ void runRateTestStreamLoop(
     const size_t numChans,
     const size_t elemSize)
 {
-    FILE  *fileptr;
-    fileptr = fopen("tx_plot.txt","w");
 
     //allocate buffers for the stream read/write
     const size_t numElems = device->getStreamMTU(stream);
-    //std::vector<std::vector<float>> buffMem(numChans, std::vector<float>(elemSize*numElems));
-    float buffMem[elemSize*numElems];
-    //std::vector<void *> buffs(numChans);
+    double buffMem[elemSize*numElems];
     void * buffs[]={buffMem};
     double m_amplitude = 0.7;
-     double sampleRate = 1e6;
-    double m_frequency = sampleRate/100;
-    float phaseIncrement = (float)((2*M_PI*m_frequency)/(float)sampleRate) ;
-    float currentPhase = 0.0;
+    double sampleRate = 1e6;
+    double m_frequency = sampleRate/10;
+    double DeltaTime = (double)((double)(1)/(double)sampleRate) ;
+    double CurrentTime = 0.0;
 
-    //for (size_t i = 0; i < numChans; i++)
-    {    for (size_t samples = 0; samples < elemSize*numElems; samples++)
-        {
-            buffMem[samples] =  (double) (m_amplitude * (double)sin(currentPhase));
-            fprintf(fileptr,"%lu %f\n",samples, buffMem[samples]);
-           currentPhase+=phaseIncrement; 
-        }
-
-    }
-
-    fclose(fileptr);
-    //buffs[0] = buffMem[0].data();
 
     buffs[0] = &buffMem[0];
+
     //state collected in this loop
     unsigned int overflows(0);
     unsigned int underflows(0);
@@ -70,25 +54,26 @@ void runRateTestStreamLoop(
 
     std::cout << "Starting TX stream loop, press Ctrl+C to exit..." << std::endl;
     device->activateStream(stream);
-    //setReg();
+
     signal(SIGINT, sigIntHandler);
+
     while (not loopDone)
     {
         int ret(0);
         int flags(0);
         long long timeNs(0);
-        switch(direction)
-        {
-        case SOAPY_SDR_RX:
-            //ret = device->readStream(stream, buffs.data(), numElems, flags, timeNs);
-            break;
-        case SOAPY_SDR_TX:
+        
            
-            ret = device->writeStream(stream, buffs, elemSize*numElems, flags, timeNs);
-
-            break;
+        for (size_t samples = 0; samples < elemSize*numElems; samples++)
+        {
+            buffMem[samples] =  (double) (m_amplitude * (double)sin(2*M_PI*m_frequency*CurrentTime));
+            CurrentTime+=DeltaTime; 
         }
+        
+        printf("CurrentTime: %f \n", CurrentTime);
+        ret = device->writeStream(stream, buffs, elemSize*numElems, flags, timeNs);
 
+        
         if (ret == SOAPY_SDR_TIMEOUT) continue;
         if (ret == SOAPY_SDR_OVERFLOW)
         {
@@ -119,7 +104,6 @@ void runRateTestStreamLoop(
             if (underflows != 0) printf("\t--TX--Underflows %u", underflows);
             printf("\n ");
         }
-        trig=1;
     }
     
 }
