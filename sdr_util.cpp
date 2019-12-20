@@ -353,25 +353,38 @@ static void ConfigureSdrDevice(void)
         SdrDeviceList[i]->DeviceHandlePtr->setAntenna(SOAPY_SDR_TX,CHAN_0,"TXH");
         SdrDeviceList[i]->DeviceHandlePtr->setAntenna(SOAPY_SDR_RX,CHAN_0,"LNAH");
         
-        /* Set sample rate */
+        /* Set Tx sample rate (ADC/DAC rate) */
         //TODO: verify if only one setting is enough to configure for all channels in TX and RX direction
-        SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
+        //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
+        SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_0,2e6);
         //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
+
+        /* Set Rx Sample Rate (ADC/DAC rate) should be same as BB (signal gen )sample rate */
         //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetSampleRateVal());
-        SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_0,1e6);
+        SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_0,2e6);
         //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
 
-        /* Set bandwidth */
-        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
+        /* Set Tx bandwidth (Filters) */
+        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_0,40e6);
         //SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
-        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
+
+        /*  Set Rx Bandwidth (Filters) */
+        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,40e6);
+        //SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
         //SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
 
         /* Set Tx Gain */
         SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetTxGain());
+         //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,"PAD",0);
         //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetTxGain());
+
+        /* Set Rx Gain */
         SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetRxGain());
-        //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetTxGain());
+         //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,31);
+        //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,"LNA",31);
+        //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,"TIA",0);
+        //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_0,"PGA",0);
+        //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetRxGain());
 
 
         /* Set Carrier Freq */
@@ -380,9 +393,11 @@ static void ConfigureSdrDevice(void)
         {
             SdrDeviceList[i]->SetCarrierFreq(2.7e9);
         }
-        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetCarrierFreq());
+        SoapySDR::Kwargs args = {{"RF","2470000000"},{"BB","0"/*"1000000"*/}};
+        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_TX,CHAN_0,0,args);
         //SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetCarrierFreq());
-        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetCarrierFreq());
+        SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_0,0,args);
+       //SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetCarrierFreq());
         //SdrDeviceList[i]->DeviceHandlePtr->setFrequency(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetCarrierFreq());
     }
 }
@@ -422,6 +437,7 @@ static void SetupTxStream(void)
 static void SetupRxStream(void)
 {
     double fullScale = 0.0;
+    SoapySDR::Kwargs args = {{"syncRxTxStreamsAct","true"}};
     //std::string format;
 
     /* set to {0, 1} for MIMO XTRX_CH_AB option to be selected in driver */
@@ -432,7 +448,7 @@ static void SetupRxStream(void)
        //format = SdrDeviceList[i]->DeviceHandlePtr->getNativeStreamFormat(SOAPY_SDR_RX,CHAN_0,fullScale);
 
         /* TODO: Currently only one Rx stream is opened per SDR device. Look for a method to open stream for both channels*/
-       SdrDeviceList[i]->RxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_RX,SOAPY_SDR_CF32);
+       SdrDeviceList[i]->RxStreamHandle = SdrDeviceList[i]->DeviceHandlePtr->setupStream(SOAPY_SDR_RX,SOAPY_SDR_CF32,channels/*,args*/);
 
     }
 
