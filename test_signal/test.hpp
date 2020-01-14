@@ -15,5 +15,5 @@ void RxLoop(
     SoapySDR::Stream *stream,
     const size_t numChans,
     const size_t elemSize);
-
+void DataDump(void);
 #endif
