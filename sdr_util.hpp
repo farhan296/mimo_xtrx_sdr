@@ -9,7 +9,7 @@
  * Include Files
  ******************************************************************************/
 #include <SoapySDR/Types.hpp>
-
+#include <semaphore.h>
 /*******************************************************************************
  * MACRO
  ******************************************************************************/
@@ -25,5 +25,7 @@
  ******************************************************************************/
 const SoapySDR::KwargsList EnumerateSdr(void);
 void OpenAndConfigureSdrDevice(SoapySDR::KwargsList &device_list);
-
+extern sem_t DataGatherSemaphore;
+extern sem_t mutex_lock;
+extern sem_t DataDumpedSemaphore;
 #endif /* SDR_UTIL_H */

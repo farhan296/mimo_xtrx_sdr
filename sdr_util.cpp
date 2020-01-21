@@ -14,7 +14,7 @@
 
 //TODO: Remove this in final code
 #include "/home/AD.PATRIOT1TECH.COM/farhan.naeem/sdr_xtrx/mimo_dev/mimo_xtrx_sdr/test_signal/test.hpp"
-
+#include "sdr_util.hpp"
 /*******************************************************************************
  * Local MACRO
  ******************************************************************************/
@@ -23,6 +23,10 @@
 #define CHAN_1          1U
 #define MAX_TX_CH       2U
 #define MAX_RX_CH       2U
+
+sem_t DataGatherSemaphore;
+sem_t DataDumpedSemaphore;
+sem_t mutex_lock;
 /*******************************************************************************
  * Local Data Structure
  ******************************************************************************/
@@ -370,18 +374,18 @@ static void ConfigureSdrDevice(void)
         //SdrDeviceList[i]->DeviceHandlePtr->setSampleRate(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetSampleRateVal());
 
         /* Set Tx bandwidth (Filters) */
-        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_0,20e6);
+        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_0,40e6);
         
         //SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_TX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
 
         /*  Set Rx Bandwidth (Filters) */
-        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,20e6);
+        SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,40e6);
         
         //SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_0,SdrDeviceList[i]->GetBandwidth());
         //SdrDeviceList[i]->DeviceHandlePtr->setBandwidth(SOAPY_SDR_RX,CHAN_1,SdrDeviceList[i]->GetBandwidth());
 
         /* Set Tx Gain */
-        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,48/*SdrDeviceList[i]->GetTxGain()*/);
+        SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,40/*SdrDeviceList[i]->GetTxGain()*/);
         //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,"PAD",0);
         //SdrDeviceList[i]->DeviceHandlePtr->setGain(SOAPY_SDR_TX,CHAN_0,SdrDeviceList[i]->GetTxGain());
         
@@ -512,7 +516,9 @@ static void RunTest(void)
     runRateTestStreamLoop(SdrDeviceList[SdrDevNum]->DeviceHandlePtr,SdrDeviceList[SdrDevNum]->TxStreamHandle,SOAPY_SDR_TX,channels.size(), elemSize);
 #endif
     pthread_t TxThread, RxThread, DataThread;
-    
+    sem_init(&mutex_lock, 0, 1);
+    sem_init(&DataGatherSemaphore, 0, 0);
+    sem_init(&DataDumpedSemaphore, 0, 1);
     pthread_create(&TxThread,NULL,TxThreadTest,NULL);
     pthread_create(&RxThread,NULL,RxThreadTest,NULL);
     pthread_create(&DataThread,NULL,DataGather,NULL);

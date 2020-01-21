@@ -19,6 +19,8 @@
 #include <fstream>
 #include <cstring>
 #include <semaphore.h>
+#include "test.hpp"
+#include "./../sdr_util.hpp"
 
 #define XTRX_RSP_TEST_SIGNAL_A (2)
 
@@ -29,12 +31,12 @@ static void sigIntHandler(const int)
     loopDone = true;
 }
 #pragma pack(1)
-double Ibuff[32768];
-double Qbuff[32768];
-double buffMemIQWr[32768];
-double buffMemIQRd[32768];
-std::complex <float> buffMem_0[16384];
-std::complex <float> Databuff[16384];
+double Ibuff[65536];
+double Qbuff[65536];
+double buffMemIQWr[65536];
+double buffMemIQRd[65536];
+std::complex <float> buffMem_0[65536];
+std::complex <float> Databuff[65536];
 int BytesRead=0;
 sem_t DataSemaphore;
 
@@ -69,7 +71,7 @@ void runRateTestStreamLoop(
     
     #if 1
     std::cout << "Starting TX stream loop, press Ctrl+C to exit..." << std::endl;
-    int flagsStream = XTRX_RSP_TEST_SIGNAL_A;
+    int flagsStream =XTRX_RSP_TEST_SIGNAL_A;
     device->activateStream(stream,flagsStream);
 
     signal(SIGINT, sigIntHandler);
@@ -199,13 +201,20 @@ void RxLoop(
         int flags(0);
         long long timeNs(0);
         
-        BytesRead = ret = device->readStream(stream, buffs, 16384, flags, timeNs);
+        sem_wait(&DataDumpedSemaphore);
+        //Mutex Lock
+        sem_wait(&mutex_lock);
+        BytesRead = ret = device->readStream(stream, buffs, 16384*2, flags, timeNs);
+        //printf("\n\rRead=%i", BytesRead);
         if(ret>0)
         {
         memcpy(Databuff,buffMem_0,sizeof(buffMem_0));
-        sem_post(&DataSemaphore);
-        std::memset(buffMem_0,0,sizeof(buffMem_0));
         }
+        //printf("\n\rBuff[0]=%f DataBuff[0]=%f", buffMem_0[0],Databuff[0]);
+        sem_post(&mutex_lock);
+        sem_post(&DataGatherSemaphore);
+        std::memset(buffMem_0,0,sizeof(buffMem_0));
+        
         
         //printf("ret=%d, flags=%d, timeNs=%lld\n", ret, flags, timeNs);
 #if 1
@@ -268,12 +277,26 @@ void DataDump(void)
 
     while (not loopDone)
     {
-        sem_wait(&DataSemaphore);
-        for (int samples = 0; samples < BytesRead; samples++)
+        sem_wait(&DataGatherSemaphore);
+        sem_wait(&mutex_lock);
+
+        for (int samples = 0; samples < BytesRead;)
         {
-            fprintf(fileptr,"%li %f %f\n",sampleNum++,Databuff[samples].real(), Databuff[samples].imag());
+            //fprintf(fileptr,"%li %f %f\n%li %f %f\n",sampleNum++,Databuff[samples].real(), Databuff[samples+2].imag()
+            //,sampleNum++,Databuff[samples+1].real(), Databuff[samples+3].imag());
+            //fprintf(fileptr,"%li %f %f\n",sampleNum++,Databuff[samples+1].real(), Databuff[samples+3].imag());
+            
+            //fprintf(fileptr,"%llu %f %f\n",sampleNum++,Databuff[samples].real(), Databuff[samples+1].imag());
+            //fprintf(fileptr,"%llu %f %f\n",sampleNum++,Databuff[samples+2].real(), Databuff[samples+3].imag());
+
+            fprintf(fileptr,"%llu %f %f\n%llu %f %f\n",sampleNum,Databuff[samples].real(), Databuff[samples].imag()
+            ,sampleNum+1,Databuff[samples+1].real(), Databuff[samples].imag());
+            sampleNum = sampleNum + 2;
+            samples = samples +4;
         }
         std::memset(Databuff,0,sizeof(Databuff));
+        sem_post(&mutex_lock);
+        sem_post(&DataDumpedSemaphore);
     }
     fclose(fileptr);
 }
